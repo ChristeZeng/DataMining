@@ -4,9 +4,22 @@ import numpy as np
 
 class DecisionTree:
     def __init__(self, max_depth=None):
+        """ 初始化
+        Arguments:
+            max_depth: 最大深度 
+        """
         self.max_depth = max_depth
     
     def Entropy(self, data, attribute):
+        """ 计算熵
+        Arguments:
+            data: 数据集
+            attribute: 特征列
+
+        Returns:
+            entropy: 熵
+        """
+
         column, counts = np.unique(data[attribute], return_counts=True)
         entropy = 0.0
         for i in range(len(column)):
@@ -14,32 +27,49 @@ class DecisionTree:
         return entropy
 
     def InformationGain(self, data, feature, target):
-        # calcu entropy of target
+        """ 计算信息增益
+        Arguments:
+            data: 数据集
+            feature: 特征列名字
+            target: 目标列名字
+        
+        Returns:
+            information_gain: 信息增益
+        """
+        # 计算数据集的熵
         entropy = self.Entropy(data, target)
-        # calcu entropy of feature
+        # 计算目标特征列的熵
         column, counts = np.unique(data[feature], return_counts=True)
         entropy_feature = 0.0
         for i in range(len(column)):
             entropy_feature += (counts[i] / np.sum(counts)) * self.Entropy(data[data[feature] == column[i]], target)
-        # calcu information gain
+        # 计算信息增益
         information_gain = entropy - entropy_feature
         return information_gain
 
-    def ID3(self, data, row, attributes, target, depth=None, parent=None):
-        print("depth:", depth)
-        print("class:", data[target].unique())
+    def ID3(self, data, raw, attributes, target, depth=None, parent=None):
+        """ ID3决策树构建
+        Arguments:
+            data: 待划分的数据集
+            raw: 原数据集
+            attributes: 待划分的特征列
+            target: 目标列名字
+            depth: 当前深度
+            parent: 父节点
+
+        Returns:
+            tree: 决策树
+        """
+
         # 如果只有一类数据，直接返回此类
         if len(np.unique(data[target])) <= 1:
             return data[target].iloc[0]
         # 需要划分的数据集为空，说明已经没有可以划分的属性了，返回出现次数最多的类别
         if len(data) == 0:
-            return np.unique(row[target])[np.argmax(np.unique(row[target], return_counts=True)[1])]
+            return np.unique(raw[target])[np.argmax(np.unique(raw[target], return_counts=True)[1])]
         # # 如果已经到达了最大深度，返回出现次数最多的类别
         if self.max_depth is not None and depth >= self.max_depth:
-            return np.unique(row[target])[np.argmax(np.unique(row[target], return_counts=True)[1])]
-        # 如果没有划分属性，返回上次划分的结果 ??
-        if len(attributes) == 0:
-            return parent
+            return np.unique(data[target])[np.argmax(np.unique(data[target], return_counts=True)[1])]
         # 获取信息增益最大的属性
         parent = np.unique(data[target])[np.argmax(np.unique(data[target], return_counts=True)[1])]
         # 计算信息增益
@@ -53,64 +83,60 @@ class DecisionTree:
             if self.InformationGain(data, attribute, target) > information_gain:
                 best_attribute = attribute
                 information_gain = self.InformationGain(data, attribute, target)
-        print("best_attribute:", best_attribute)
         # 创建新的划分树
         tree = {best_attribute: {}}
         # 创建子树
         column = np.unique(data[best_attribute], return_counts=True)[0]
         # 在best_attribute属性上划分数据集
-        print(attributes.drop(best_attribute))
         for i in range(len(column)):
             # 创建子树
-            tree[best_attribute][column[i]] = self.ID3(data.where(data[best_attribute] == column[i]).dropna(), row, attributes.drop(best_attribute), target, depth + 1, parent)
-        # print("tree:", tree)
+            tree[best_attribute][column[i]] = self.ID3(data.where(data[best_attribute] == column[i]).dropna(), raw, attributes.drop(best_attribute), target, depth + 1, parent)
         return tree
 
-    # def predict(self, data):
-    #     dict_data = data.to_dict(orient='records')
-    #     result = []
-    #     for i in range(len(dict_data)):
-    #         result.append(self.predict_one(dict_data[i], self.tree))
-    #     return result
+    def predict(self, data):
+        """ 预测数据集
+        Arguments:
+            data: 数据集
+
+        Returns:
+            predictions: 预测结果
+        """
+
+        dict_data = data.to_dict(orient='records')
+        result = []
+        for i in range(len(dict_data)):
+            result.append(self.predict_one(dict_data[i], self.tree))
+        return result
     
     def predict_one(self, data, tree):
-        for key in list(tree.keys()):
-            if key in list(data.keys()):
-                if type(tree[key][data[key]]) is dict:
-                    return self.predict_one(data, tree[key])
-                else:
-                    return tree[key]
+        """ 预测单个数据
+        Arguments:
+            data: 数据
+            tree: 决策树
 
-    def fit(self, data, target):
-        data1 = data.copy()
-        data1[target.name] = target
-        self.tree = self.ID3(data1, data1, data.columns, target.name, 0)
+        Returns:
+            prediction: 预测结果
+        """
 
-    def make_prediction(self, sample, tree, default=1):
-        # map sample data to tree
-        for attribute in list(sample.keys()):
-            # check if feature exists in tree
+        for attribute in list(data.keys()):
             if attribute in list(tree.keys()):
                 try:
-                    result = tree[attribute][sample[attribute]]
+                    result = tree[attribute][data[attribute]]
                 except:
-                    return default
-
-                result = tree[attribute][sample[attribute]]
-
-                # if more attributes exist within result, recursively find best result
+                    return 1
+                result = tree[attribute][data[attribute]]
                 if isinstance(result, dict):
-                    return self.make_prediction(sample, result)
+                    return self.predict_one(data, result)
                 else:
                     return result
 
-    def predict(self, input):
-        # convert input data into a dictionary of samples
-        samples = input.to_dict(orient='records')
-        predictions = []
+    def fit(self, data, target):
+        """ 训练决策树
+        Arguments:
+            data: 数据集
+            target: 目标列名字
+        """
 
-        # make a prediction for every sample
-        for sample in samples:
-            predictions.append(self.make_prediction(sample, self.tree, 1.0))
-
-        return predictions
+        data1 = data.copy()
+        data1[target.name] = target
+        self.tree = self.ID3(data1, data1, data.columns, target.name, 0)
