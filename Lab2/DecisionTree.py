@@ -67,7 +67,7 @@ class DecisionTree:
         # 需要划分的数据集为空，说明已经没有可以划分的属性了，返回出现次数最多的类别
         if len(data) == 0:
             return np.unique(raw[target])[np.argmax(np.unique(raw[target], return_counts=True)[1])]
-        # # 如果已经到达了最大深度，返回出现次数最多的类别
+        # 如果已经到达了最大深度，返回出现次数最多的类别
         if self.max_depth is not None and depth >= self.max_depth:
             return np.unique(data[target])[np.argmax(np.unique(data[target], return_counts=True)[1])]
         # 获取信息增益最大的属性

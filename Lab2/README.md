@@ -254,7 +254,12 @@ max_depth = 3
 
 ![image-20220513224114922](README.assets/image-20220513224114922.png)
 
-## 最佳正确率
+从上述分析得到几个结论：
+
+* 在此数据集上，自行实现的ID3决策树正确率与商用的决策树比较接近，但仍有一定的差距
+* 由于在训练集上的正确率均为1，推测存在过拟合的可能性，所以需要通过剪枝来判断，从剪枝来看，自行实现的决策树在更小的最大深度上会更早达到过拟合，而商用的决策树能够保证决策树的深度足够大的同时减少过拟合的可能，在此方面上我的决策树远远不及商用。
+
+### 最佳正确率
 
 不进行剪枝时，可能会发生过拟合的问题，所以我通过修改最大深度这一参数来简单地试探最佳拟合位置，并且找到在这一维度上的最佳正确率。
 
@@ -300,12 +305,15 @@ for train_index, test_index in kf.split(train_data):
 print("The array of error for sklearn: ", errorlist_sklearn)
 print("The array of error for my decision tree: ", errorlist_mydecis)
 
-error = errorlist_sklearn - np.mean(errorlist_mydecis)
-check_t = np.sqrt(10 / np.var(error)) * np.mean(error)
+error = errorlist_sklearn - errorlist_mydecis
+check_t = np.sqrt(5 / np.var(error)) * np.mean(error)
 print("The check_t: ", check_t)
 ```
 
-在均不设置最大深度的情况下进行计算，以$n = 5$，$\alpha =0.05$的标准得到的T参数值为3.477，经查表得知此值远高于标准值2.776，说两个模型存在显著差异。个人推测是由于商用决策树进行了多种优化与剪枝操作。
+在均不设置最大深度的情况下进行计算，以$n = 5$，$\alpha =0.05$的标准得到的T参数值为3.477，经查表得知此值远高于标准值2.776，说两个模型存在显著差异。个人推测是由于以下两个原因：
+
+* 与数据集本身的特征有关，数据集数据有效性难以保证，数据量也不够大，在不同部分正确率差别较大
+* 商用决策树进行了多种优化与剪枝操作。
 
 ![image-20220513225838171](README.assets/image-20220513225838171.png)
 
